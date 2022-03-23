@@ -21,6 +21,7 @@ include_directories(src)
 
 add_library(${LIB_NAME}
     src/queue.c
+    src/reader.c
 )
 
 add_executable(${EXE_NAME} 
