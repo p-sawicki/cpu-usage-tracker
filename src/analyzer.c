@@ -1,7 +1,5 @@
 #include <ctype.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include "analyzer.h"
 
@@ -69,20 +67,22 @@ void *analyzer_thread(void *analyzer_params) {
   ull *prev_idle = calloc(params->nprocs, sizeof(ull));
 
   while (!*params->exit_flag) {
+    notify_watchdog(params->watchdog_queue, TAG_ANALYZER);
+
     char *stat = NULL;
-    if (!queue_pop(params->queue_in, (void **)&stat, 0) && stat) {
+    if (!queue_pop(params->in_queue, (void **)&stat, 0) && stat) {
       double *usage =
           parse_contents(stat, params->nprocs, prev_total, prev_idle);
 
       if (usage) {
-        if (queue_push(params->queue_out, usage)) {
-          fprintf(stderr, "[Analyzer] queue_push failed!");
+        if (queue_push(params->out_queue, usage)) {
+          fprintf(stderr, "[Analyzer] queue_push failed!\n");
         }
       }
 
       free(stat);
     } else {
-      fprintf(stderr, "[Analyzer] queue_pop failed!");
+      fprintf(stderr, "[Analyzer] queue_pop failed!\n");
     }
   }
 

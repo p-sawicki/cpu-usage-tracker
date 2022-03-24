@@ -1,11 +1,12 @@
 #ifndef CPU_USAGE_TRACKER_ANALYZER_H
 #define CPU_USAGE_TRACKER_ANALYZER_H
 
-#include "queue.h"
+#include "common.h"
 
 typedef struct analyzer_params_t {
-  queue_t *queue_in;
-  queue_t *queue_out;
+  queue_t *in_queue;
+  queue_t *out_queue;
+  queue_t *watchdog_queue;
   int *exit_flag;
   int nprocs;
 } analyzer_params_t;

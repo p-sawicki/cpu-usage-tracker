@@ -3,10 +3,11 @@
 
 #include <stdio.h>
 
-#include "queue.h"
+#include "common.h"
 
 typedef struct printer_params_t {
-  queue_t *queue;
+  queue_t *analyzer_queue;
+  queue_t *watchdog_queue;
   FILE *output_file;
   int *exit_flag;
   int nprocs;

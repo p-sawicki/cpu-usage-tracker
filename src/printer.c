@@ -1,5 +1,3 @@
-#include <stdlib.h>
-
 #include "printer.h"
 
 #define CORES_PER_LINE 5
@@ -24,8 +22,11 @@ void *printer_thread(void *printer_params) {
   printer_params_t *params = (printer_params_t *)printer_params;
 
   while (0 == *params->exit_flag) {
+    notify_watchdog(params->watchdog_queue, TAG_PRINTER);
     double *usage = NULL;
-    if (0 == queue_pop(params->queue, (void **)&usage, 0) && NULL != usage) {
+
+    if (0 == queue_pop(params->analyzer_queue, (void **)&usage, 0) &&
+        NULL != usage) {
       fprintf(params->output_file, "\n");
 
       if (0 == print_time(params->output_file)) {
@@ -51,7 +52,7 @@ void *printer_thread(void *printer_params) {
 
       free(usage);
     } else {
-      fprintf(stderr, "[Printer] queue_pop failed!");
+      fprintf(stderr, "[Printer] queue_pop failed!\n");
     }
   }
 

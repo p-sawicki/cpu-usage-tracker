@@ -3,10 +3,11 @@
 
 #include <stdio.h>
 
-#include "queue.h"
+#include "common.h"
 
 typedef struct reader_params_t {
-  queue_t *queue;
+  queue_t *watchdog_queue;
+  queue_t *analyzer_queue;
   FILE *stream;
   int *exit_flag;
 } reader_params_t;
