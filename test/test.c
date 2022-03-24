@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -12,51 +13,39 @@ typedef struct consumer_thread_params_t {
 void *consumer_thread(void *thread_params) {
   consumer_thread_params_t *params = (consumer_thread_params_t *)thread_params;
   void *data = NULL;
-  int res;
 
-  if ((res = queue_pop(params->queue, &data))) {
-    return (void *)1l;
-  }
+  assert(0 == queue_pop(params->queue, &data));
+  assert((params->expected_value == NULL && data == NULL) ||
+         0 == strcmp(params->expected_value, (const char *)data));
 
-  return (void *)(long)strcmp(params->expected_value, (const char *)data);
+  return NULL;
 }
 
-int queue_test() {
+/**
+ * @brief Testing the following scenario:
+ * 1. Consumer1 starts and tries to take data.
+ * 2. Elem1 is inserted - should be taken by Consumer1.
+ * 3. Elem2 is inserted - should stay in queue.
+ * 4. Consumer2 starts and should take Elem2.
+ * Sleep()s were added to ensure correct order for testing.
+ *
+ */
+void queue_test() {
   queue_t queue;
-  int res = 0;
-
-  pthread_t consumer1, consumer2;
+  assert(0 == queue_init(&queue));
 
   const char *elem1 = "test1";
   const char *elem2 = "test2";
 
-  if ((res = queue_init(&queue))) {
-    return res;
-  }
-
-  /**
-   * Testing the following scenario:
-   * 1. Consumer1 starts and tries to take data.
-   * 2. Elem1 is inserted - should be taken by Consumer1.
-   * 3. Elem2 is inserted - should stay in queue.
-   * 4. Consumer2 starts and should take Elem2.
-   * Sleep()s were added to ensure correct order for testing.
-   *
-   */
-
+  pthread_t consumer1, consumer2;
   consumer_thread_params_t params1;
   params1.expected_value = elem1;
   params1.queue = &queue;
   pthread_create(&consumer1, NULL, consumer_thread, (void *)&params1);
   sleep(1);
 
-  if ((res = queue_push(&queue, (void *)elem1))) {
-    return res;
-  }
-
-  if ((res = queue_push(&queue, (void *)elem2))) {
-    return res;
-  }
+  assert(0 == queue_push(&queue, (void *)elem1));
+  assert(0 == queue_push(&queue, (void *)elem2));
   sleep(1);
 
   consumer_thread_params_t params2;
@@ -64,53 +53,54 @@ int queue_test() {
   params2.queue = &queue;
   pthread_create(&consumer2, NULL, consumer_thread, (void *)&params2);
 
-  void *return_val = NULL;
-  pthread_join(consumer1, &return_val);
-  if ((long)return_val) {
-    return 1;
-  }
+  pthread_join(consumer1, NULL);
+  pthread_join(consumer2, NULL);
 
-  pthread_join(consumer2, &return_val);
-  if ((long)return_val) {
-    return 1;
-  }
-
-  if ((res = queue_destroy(&queue))) {
-    return res;
-  }
-
-  return 0;
+  assert(0 == queue_destroy(&queue));
 }
 
-int queue_destroy_test() {
+/**
+ * @brief Tests that data left in queue are deallocated on queue_destroy().
+ *
+ */
+void queue_destroy_test() {
   queue_t queue;
-  int res;
-
-  if ((res = queue_init(&queue))) {
-    return res;
-  }
+  assert(0 == queue_init(&queue));
 
   void *data = malloc(1024); // Should be freed in queue_destoy().
-  if ((res = queue_push(&queue, data))) {
-    return res;
-  }
 
-  if ((res = queue_destroy(&queue))) {
-    return res;
-  }
+  assert(0 == queue_push(&queue, data));
+  assert(0 == queue_destroy(&queue));
+  assert(NULL == queue.first);
+}
 
-  return 0;
+/**
+ * @brief Tests that all threads blocked in queue are unblocked in
+ * queue_destroy().
+ *
+ */
+void queue_multiple_consumers_on_destroy_test() {
+  queue_t queue;
+  assert(0 == queue_init(&queue));
+
+  pthread_t consumer1, consumer2;
+  consumer_thread_params_t params;
+  params.expected_value = NULL;
+  params.queue = &queue;
+
+  pthread_create(&consumer1, NULL, consumer_thread, (void *)&params);
+  pthread_create(&consumer2, NULL, consumer_thread, (void *)&params);
+  sleep(1);
+
+  assert(0 == queue_destroy(&queue));
+  assert(0 == pthread_join(consumer1, NULL));
+  assert(0 == pthread_join(consumer2, NULL));
 }
 
 int main() {
-  int res;
-  if ((res = queue_test())) {
-    return res;
-  }
-
-  if ((res = queue_destroy_test())) {
-    return res;
-  }
+  queue_test();
+  queue_destroy_test();
+  queue_multiple_consumers_on_destroy_test();
 
   return 0;
 }
