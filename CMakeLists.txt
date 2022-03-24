@@ -23,6 +23,7 @@ add_library(${LIB_NAME}
     src/queue.c
     src/reader.c
     src/analyzer.c
+    src/printer.c
 )
 
 add_executable(${EXE_NAME} 

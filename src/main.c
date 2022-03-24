@@ -1,6 +1,7 @@
 #include <sys/sysinfo.h>
 
 #include "analyzer.h"
+#include "printer.h"
 #include "reader.h"
 
 #define PROC_STAT "/proc/stat"
@@ -31,6 +32,16 @@ int main() {
   pthread_t analyzer;
   pthread_create(&analyzer, NULL, analyzer_thread, &analyzer_params);
 
+  printer_params_t printer_params;
+  printer_params.exit_flag = &exit_flag;
+  printer_params.nprocs = nprocs;
+  printer_params.output_file = stdout;
+  printer_params.queue = &analyzer_writer_queue;
+
+  pthread_t printer;
+  pthread_create(&printer, NULL, printer_thread, &printer_params);
+
   pthread_join(reader, NULL);
-  pthread_join(&analyzer, NULL);
+  pthread_join(analyzer, NULL);
+  pthread_join(printer, NULL);
 }
