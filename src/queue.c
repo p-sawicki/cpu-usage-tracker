@@ -1,5 +1,3 @@
-#include <assert.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 #include "queue.h"
@@ -75,7 +73,7 @@ int queue_push(queue_t *queue, void *data) {
   return 0;
 }
 
-int queue_pop(queue_t *queue, void **data) {
+int queue_pop(queue_t *queue, void **data, time_t timeout) {
   if (NULL == queue || NULL == data || 0 != queue->exit_flag) {
     return EINVAL;
   }
@@ -85,8 +83,26 @@ int queue_pop(queue_t *queue, void **data) {
     return res;
   }
 
+  struct timespec ts;
+  if (0 != (res = clock_gettime(CLOCK_REALTIME, &ts))) {
+    return res;
+  }
+  ts.tv_sec += timeout;
+
   while (NULL == queue->first && 0 == queue->exit_flag) {
-    if (0 != (res = pthread_cond_wait(&queue->cond, &queue->mutex))) {
+    if (0 == timeout) {
+      if (0 != (res = pthread_cond_wait(&queue->cond, &queue->mutex))) {
+        pthread_mutex_unlock(&queue->mutex);
+        return res;
+      }
+      break;
+    }
+
+    res = pthread_cond_timedwait(&queue->cond, &queue->mutex, &ts);
+    if (ETIMEDOUT == res) {
+      break;
+    }
+    if (0 != res) {
       pthread_mutex_unlock(&queue->mutex);
       return res;
     }
@@ -124,12 +140,10 @@ int queue_destroy(queue_t *queue) {
   // Unblock consumer threads if they are currently waiting. If any
   // is unblocked, the consumer thread takes the mutex and this tries again.
   if (0 != (res = pthread_cond_broadcast(&queue->cond))) {
-    assert(0 == res);
     return res;
   }
 
   if (0 != (res = pthread_mutex_lock(&queue->mutex))) {
-    assert(0 == res);
     return res;
   }
 
@@ -143,7 +157,6 @@ int queue_destroy(queue_t *queue) {
   }
 
   if (0 != (res = pthread_mutex_unlock(&queue->mutex))) {
-    assert(0 == res);
     return res;
   }
 
@@ -156,7 +169,6 @@ int queue_destroy(queue_t *queue) {
   }
 
   if (0 != (res = pthread_cond_destroy(&queue->cond))) {
-    assert(0 == res);
     return res;
   }
 

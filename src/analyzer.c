@@ -70,7 +70,7 @@ void *analyzer_thread(void *analyzer_params) {
 
   while (!*params->exit_flag) {
     char *stat = NULL;
-    if (!queue_pop(params->queue_in, (void **)&stat) && stat) {
+    if (!queue_pop(params->queue_in, (void **)&stat, 0) && stat) {
       double *usage =
           parse_contents(stat, params->nprocs, prev_total, prev_idle);
 

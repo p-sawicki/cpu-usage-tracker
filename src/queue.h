@@ -68,7 +68,10 @@ int queue_push(queue_t *queue, void *data);
  * @param queue Successfully initialzed queue.
  * @param data Location of returned data. Cannot be NULL.
  * *data may be NULL after calling this function if queue_destroy()
- * was called before data was available.
+ * was called before data was available or timeout was reached.
+ * @param timeout Timeout in seconds. If data are not available
+ * before timeout is reached, function will return with *data set to NULL.
+ * If timeout is 0, function will block until data are available.
  * @return int 0 if data was retrieved correctly.
  * EINVAL if queue is NULL, data are NULL or queue is destroyed.
  * Error code from pthread_mutex_lock, pthread_cond_wait or
@@ -76,7 +79,7 @@ int queue_push(queue_t *queue, void *data);
  * If the return value is not 0, further usage
  * of the queue is undefined.
  */
-int queue_pop(queue_t *queue, void **data);
+int queue_pop(queue_t *queue, void **data, time_t timeout);
 
 /**
  * @brief Release memory owned by queue and make it unusable.

@@ -25,7 +25,7 @@ void *printer_thread(void *printer_params) {
 
   while (0 == *params->exit_flag) {
     double *usage = NULL;
-    if (0 == queue_pop(params->queue, (void **)&usage) && NULL != usage) {
+    if (0 == queue_pop(params->queue, (void **)&usage, 0) && NULL != usage) {
       fprintf(params->output_file, "\n");
 
       if (0 == print_time(params->output_file)) {
