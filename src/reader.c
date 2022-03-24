@@ -16,12 +16,14 @@ void *reader_thread(void *reader_params) {
         rewind(params->stream);
         fread(buffer, sizeof(char), BUFFER_LENGTH, params->stream);
 
-        queue_push(params->queue, buffer);
+        if (queue_push(params->queue, buffer)) {
+          fprintf(stderr, "[Reader] queue_push failed!\n");
+        }
       } else {
-        fprintf(stderr, "malloc failed!");
+        fprintf(stderr, "[Reader] malloc failed!\n");
       }
     } else {
-      fprintf(stderr, "fseek failed!");
+      fprintf(stderr, "[Reader] fseek failed!\n");
     }
 
     sleep(1);
