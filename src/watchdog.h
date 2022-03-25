@@ -4,7 +4,8 @@
 #include "common.h"
 
 typedef struct watchdog_params_t {
-  queue_t *queue;
+  queue_t *input_queue;
+  queue_t *logger_queue;
   int *exit_flag;
 } watchdog_params_t;
 

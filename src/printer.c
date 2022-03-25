@@ -1,18 +1,12 @@
 #include "printer.h"
 
 #define CORES_PER_LINE 5
-#define TIME_BUFFER_LENGTH 9
 
 int print_time(FILE *output) {
-  time_t timer = time(NULL);
-  struct tm *tm_info = localtime(&timer);
+  char buffer[TIME_BUFFER_LENGTH];
 
-  if (NULL != tm_info) {
-    char buffer[TIME_BUFFER_LENGTH];
-
-    if (0 != strftime(buffer, TIME_BUFFER_LENGTH, "%H:%M:%S", tm_info)) {
-      return fprintf(output, "%s\n", buffer) != TIME_BUFFER_LENGTH;
-    }
+  if (0 == get_time(buffer)) {
+    return fprintf(output, "%s\n", buffer) != TIME_BUFFER_LENGTH;
   }
 
   return 1;
@@ -27,6 +21,7 @@ void *printer_thread(void *printer_params) {
 
     if (0 == queue_pop(params->analyzer_queue, (void **)&usage, 0) &&
         NULL != usage) {
+      log_to_file(params->logger_queue, TAG_PRINTER, "Received message\n");
       fprintf(params->output_file, "\n");
 
       if (0 == print_time(params->output_file)) {
@@ -47,12 +42,13 @@ void *printer_thread(void *printer_params) {
         }
 
       } else {
-        fprintf(stderr, "[Printer] print_time() failed!\n");
+        log_to_file(params->logger_queue, TAG_PRINTER,
+                    "print_time() failed!\n");
       }
 
       free(usage);
     } else {
-      fprintf(stderr, "[Printer] queue_pop failed!\n");
+      log_to_file(params->logger_queue, TAG_PRINTER, "queue_pop() failed!\n");
     }
   }
 

@@ -18,13 +18,16 @@ void *reader_thread(void *reader_params) {
         fread(buffer, sizeof(char), BUFFER_LENGTH, params->stream);
 
         if (queue_push(params->analyzer_queue, buffer)) {
-          fprintf(stderr, "[Reader] queue_push failed!\n");
+          log_to_file(params->logger_queue, TAG_READER,
+                      "queue_push() failed!\n");
+        } else {
+          log_to_file(params->logger_queue, TAG_READER, "Sent message\n");
         }
       } else {
-        fprintf(stderr, "[Reader] malloc failed!\n");
+        log_to_file(params->logger_queue, TAG_READER, "malloc() failed!\n");
       }
     } else {
-      fprintf(stderr, "[Reader] fseek failed!\n");
+      log_to_file(params->logger_queue, TAG_READER, "fseek() failed!\n");
     }
 
     sleep(1);

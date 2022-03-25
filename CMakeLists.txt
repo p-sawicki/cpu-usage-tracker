@@ -25,6 +25,7 @@ add_library(${LIB_NAME}
     src/analyzer.c
     src/printer.c
     src/watchdog.c
+    src/logger.c
 )
 
 add_executable(${EXE_NAME} 

@@ -1,9 +1,10 @@
-#include <stdio.h>
-
 #include "watchdog.h"
 
 #define TIMEOUT_SECONDS 1
 #define TIME_DIFF_TOLERANCE 2
+#define LOG(tag)                                                               \
+  log_to_file(params->logger_queue, TAG_WATCHDOG,                              \
+              "Received notification from " tag "\n")
 
 int has_hanged(const char *tag, time_t time_now, time_t time_last) {
   if (time_now - time_last >= TIME_DIFF_TOLERANCE) {
@@ -23,18 +24,22 @@ void *watchdog_thread(void *watchdog_params) {
 
   char *msg = NULL;
   while (0 == *params->exit_flag) {
-    if (0 == queue_pop(params->queue, (void **)&msg, TIMEOUT_SECONDS)) {
+    if (0 == queue_pop(params->input_queue, (void **)&msg, TIMEOUT_SECONDS)) {
       time_now = time(NULL);
 
       if (NULL != msg) {
         if (0 == strcmp(msg, TAG_READER)) {
           time_reader = time_now;
+          LOG(TAG_READER);
         } else if (0 == strcmp(msg, TAG_ANALYZER)) {
           time_analyzer = time_now;
+          LOG(TAG_ANALYZER);
         } else if (0 == strcmp(msg, TAG_PRINTER)) {
           time_printer = time_now;
+          LOG(TAG_PRINTER);
         } else if (0 == strcmp(msg, TAG_LOGGER)) {
           time_logger = time_now;
+          LOG(TAG_LOGGER);
         }
 
         free(msg);
@@ -47,7 +52,7 @@ void *watchdog_thread(void *watchdog_params) {
         *params->exit_flag = 1;
       }
     } else {
-      fprintf(stderr, "[Watchdog] queue_pop() failed!\n");
+      log_to_file(params->logger_queue, TAG_WATCHDOG, "queue_pop() failed!\n");
     }
   }
 

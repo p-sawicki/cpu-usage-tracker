@@ -1,5 +1,4 @@
 #include <ctype.h>
-#include <stdio.h>
 
 #include "analyzer.h"
 
@@ -9,14 +8,20 @@
 typedef unsigned long long ull;
 
 double *parse_contents(const char *stat, int nprocs, ull *prev_total,
-                       ull *prev_idle) {
+                       ull *prev_idle, queue_t *logger_queue) {
   char *begin = strstr(stat, STAT_LINE_START);
   if (!begin) {
-    fprintf(stderr, "[Analyzer] Invalid file contents received!\n");
+    log_to_file(logger_queue, TAG_ANALYZER,
+                "Invalid file contents received!\n");
     return NULL;
   }
 
   double *usage = malloc(sizeof(double) * nprocs);
+  if (NULL == usage) {
+    log_to_file(logger_queue, TAG_ANALYZER, "malloc() failed!\n");
+    return NULL;
+  }
+
   const char *line = strtok(begin, "\n");
 
   // Check that line begins with "cpu".
@@ -33,7 +38,7 @@ double *parse_contents(const char *stat, int nprocs, ull *prev_total,
                  &cpu_index, &user, &nice, &system, &idle, &iowait, &irq,
                  &softirq, &steal, &guest, &guest_nice) == VALUES_PER_LINE) {
         if (cpu_index < 0 || cpu_index >= nprocs) {
-          fprintf(stderr, "[Analyzer] Invalid CPU ID!\n");
+          log_to_file(logger_queue, TAG_ANALYZER, "Invalid CPU ID!\n");
           continue;
         }
 
@@ -50,7 +55,7 @@ double *parse_contents(const char *stat, int nprocs, ull *prev_total,
         prev_total[cpu_index] = total;
         prev_idle[cpu_index] = idle;
       } else {
-        fprintf(stderr, "[Analyzer] Invalid line format!\n");
+        log_to_file(logger_queue, TAG_ANALYZER, "Invalid line format!\n");
       }
     }
 
@@ -65,24 +70,40 @@ void *analyzer_thread(void *analyzer_params) {
 
   ull *prev_total = calloc(params->nprocs, sizeof(ull));
   ull *prev_idle = calloc(params->nprocs, sizeof(ull));
+  if (NULL == prev_total || NULL == prev_idle) {
+    log_to_file(params->logger_queue, TAG_ANALYZER, "calloc() failed!\n");
+
+    if (NULL != prev_total) {
+      free(prev_total);
+    }
+    if (NULL != prev_idle) {
+      free(prev_idle);
+    }
+    return NULL;
+  }
 
   while (!*params->exit_flag) {
     notify_watchdog(params->watchdog_queue, TAG_ANALYZER);
 
     char *stat = NULL;
     if (!queue_pop(params->in_queue, (void **)&stat, 0) && stat) {
-      double *usage =
-          parse_contents(stat, params->nprocs, prev_total, prev_idle);
+      log_to_file(params->logger_queue, TAG_ANALYZER, "Received message\n");
+
+      double *usage = parse_contents(stat, params->nprocs, prev_total,
+                                     prev_idle, params->logger_queue);
 
       if (usage) {
         if (queue_push(params->out_queue, usage)) {
-          fprintf(stderr, "[Analyzer] queue_push failed!\n");
+          log_to_file(params->logger_queue, TAG_ANALYZER,
+                      "queue_push() failed!\n");
+        } else {
+          log_to_file(params->logger_queue, TAG_ANALYZER, "Sent message\n");
         }
       }
 
       free(stat);
     } else {
-      fprintf(stderr, "[Analyzer] queue_pop failed!\n");
+      log_to_file(params->logger_queue, TAG_ANALYZER, "queue_pop() failed!\n");
     }
   }
 
