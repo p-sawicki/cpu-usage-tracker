@@ -15,8 +15,10 @@ int print_time(FILE *output) {
 void *printer_thread(void *printer_params) {
   printer_params_t *params = (printer_params_t *)printer_params;
 
-  while (0 == *params->exit_flag) {
-    notify_watchdog(params->watchdog_queue, TAG_PRINTER);
+  while (0 == exit_flag) {
+    if (0 != notify_watchdog(params->watchdog_queue, TAG_PRINTER)) {
+      break;
+    }
     double *usage = NULL;
 
     if (0 == queue_pop(params->analyzer_queue, (void **)&usage, 0) &&
@@ -49,6 +51,7 @@ void *printer_thread(void *printer_params) {
       free(usage);
     } else {
       log_to_file(params->logger_queue, TAG_PRINTER, "queue_pop() failed!\n");
+      break;
     }
   }
   log_to_file(params->logger_queue, TAG_PRINTER, "Terminating\n");

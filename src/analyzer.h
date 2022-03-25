@@ -8,7 +8,6 @@ typedef struct analyzer_params_t {
   queue_t *out_queue;
   queue_t *watchdog_queue;
   queue_t *logger_queue;
-  volatile sig_atomic_t *exit_flag;
   int nprocs;
 } analyzer_params_t;
 

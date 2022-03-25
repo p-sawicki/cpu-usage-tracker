@@ -8,7 +8,6 @@ typedef struct printer_params_t {
   queue_t *watchdog_queue;
   queue_t *logger_queue;
   FILE *output_file;
-  volatile sig_atomic_t *exit_flag;
   int nprocs;
 } printer_params_t;
 

@@ -7,22 +7,25 @@
 void *reader_thread(void *reader_params) {
   reader_params_t *params = (reader_params_t *)reader_params;
 
-  while (!*params->exit_flag) {
-    notify_watchdog(params->watchdog_queue, TAG_READER);
+  while (0 == exit_flag) {
+    if (0 != notify_watchdog(params->watchdog_queue, TAG_READER)) {
+      break;
+    }
 
-    if (!fseek(params->stream, 0, SEEK_SET)) {
+    if (0 == fseek(params->stream, 0, SEEK_SET)) {
       char *buffer = (char *)malloc(BUFFER_LENGTH);
 
-      if (buffer) {
+      if (NULL != buffer) {
         rewind(params->stream);
         fread(buffer, sizeof(char), BUFFER_LENGTH, params->stream);
 
-        if (queue_push(params->analyzer_queue, buffer)) {
+        if (0 == queue_push(params->analyzer_queue, buffer)) {
+          log_to_file(params->logger_queue, TAG_READER, "Sent message\n");
+        } else {
           log_to_file(params->logger_queue, TAG_READER,
                       "queue_push() failed!\n");
           free(buffer);
-        } else {
-          log_to_file(params->logger_queue, TAG_READER, "Sent message\n");
+          break;
         }
       } else {
         log_to_file(params->logger_queue, TAG_READER, "malloc() failed!\n");

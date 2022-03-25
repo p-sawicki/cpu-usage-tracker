@@ -15,6 +15,12 @@ struct queue_node_t {
 };
 
 /**
+ * @brief State of the queue used to prevent invalid access.
+ *
+ */
+enum queue_state { OK = 0, UNINITIALIZED, INVALID, DESTROYED };
+
+/**
  * @brief Simple queue for exchanging generic data between threads.
  * Fields should not be accessed directly - use functions declared below.
  *
@@ -25,22 +31,18 @@ typedef struct queue_t {
   pthread_mutex_t mutex;
   pthread_cond_t cond;
 
-  /**
-   * @brief Used for destroying the queue. It is assumed that it will
-   * only be changed once and thus does not need to be atomic.
-   *
-   */
-  int exit_flag;
+  enum queue_state state;
 } queue_t;
 
 /**
- * @brief Initialize the queue.
+ * @brief Initialize the queue. No other operation is permitted to be executed
+ * on given queue before queue_init() finishes.
  *
  * @param queue Newly created queue.
  * @return int 0 if queue is successfully initialized and can be used.
  * EINVAL if queue is NULL.
  * Error code from pthread_mutex_init or pthread_cond_init if either fails.
- * If the return value is not 0, using the queue is undefined.
+ * If the return value is not 0, queue is in an invalid state.
  */
 int queue_init(queue_t *queue);
 
@@ -49,15 +51,14 @@ int queue_init(queue_t *queue);
  *
  * @param queue Successfully initialized queue.
  * @param data Data to be added. Data should either be heap-allocated,
- * or ensured that it will not be present in the queue when
+ * or it should be ensured that it will not be present in the queue when
  * queue_destroy() is called.
  * @return int 0 if data was added correctly.
- * EINVAL if queue is NULL or destroyed.
+ * EINVAL if queue is NULL or in an invalid state.
  * ENOMEM if new node could not be created.
  * Error code from pthread_mutex_lock, pthread_mutex_unlock
  * or pthread_cond_signal if any of those fail.
- * If the return value is not 0, further usage
- * of the queue is undefined.
+ * If the return value is not 0, queue is in an invalid state.
  */
 int queue_push(queue_t *queue, void *data);
 
@@ -73,11 +74,10 @@ int queue_push(queue_t *queue, void *data);
  * before timeout is reached, function will return with *data set to NULL.
  * If timeout is 0, function will block until data are available.
  * @return int 0 if data was retrieved correctly.
- * EINVAL if queue is NULL, data are NULL or queue is destroyed.
+ * EINVAL if queue is NULL, data are NULL or queue is in an invalid state.
  * Error code from pthread_mutex_lock, pthread_cond_wait or
  * pthread_mutex_unlock if any of those fail.
- * If the return value is not 0, further usage
- * of the queue is undefined.
+ * If the return value is not 0, queue is in an invalid state.
  */
 int queue_pop(queue_t *queue, void **data, time_t timeout);
 

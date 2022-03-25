@@ -10,7 +10,7 @@ typedef unsigned long long ull;
 double *parse_contents(const char *stat, int nprocs, ull *prev_total,
                        ull *prev_idle, queue_t *logger_queue) {
   char *begin = strstr(stat, STAT_LINE_START);
-  if (!begin) {
+  if (NULL == begin) {
     log_to_file(logger_queue, TAG_ANALYZER,
                 "Invalid file contents received!\n");
     return NULL;
@@ -41,6 +41,8 @@ double *parse_contents(const char *stat, int nprocs, ull *prev_total,
           log_to_file(logger_queue, TAG_ANALYZER, "Invalid CPU ID!\n");
           continue;
         }
+        // Calculation based on formula from
+        // https://stackoverflow.com/a/23376195/13162312
 
         ull idle = idle + iowait;
         ull non_idle = user + nice + system + irq + softirq + steal;
@@ -82,29 +84,34 @@ void *analyzer_thread(void *analyzer_params) {
     return NULL;
   }
 
-  while (!*params->exit_flag) {
-    notify_watchdog(params->watchdog_queue, TAG_ANALYZER);
+  while (0 == exit_flag) {
+    if (0 != notify_watchdog(params->watchdog_queue, TAG_ANALYZER)) {
+      break;
+    }
 
     char *stat = NULL;
-    if (!queue_pop(params->in_queue, (void **)&stat, 0) && stat) {
+    if (0 == queue_pop(params->in_queue, (void **)&stat, 0) && NULL != stat) {
       log_to_file(params->logger_queue, TAG_ANALYZER, "Received message\n");
 
       double *usage = parse_contents(stat, params->nprocs, prev_total,
                                      prev_idle, params->logger_queue);
 
-      if (usage) {
-        if (queue_push(params->out_queue, usage)) {
+      if (NULL != usage) {
+        if (0 == queue_push(params->out_queue, usage)) {
+          log_to_file(params->logger_queue, TAG_ANALYZER, "Sent message\n");
+        } else {
           log_to_file(params->logger_queue, TAG_ANALYZER,
                       "queue_push() failed!\n");
+
           free(usage);
-        } else {
-          log_to_file(params->logger_queue, TAG_ANALYZER, "Sent message\n");
+          break;
         }
       }
 
       free(stat);
     } else {
       log_to_file(params->logger_queue, TAG_ANALYZER, "queue_pop() failed!\n");
+      break;
     }
   }
 

@@ -9,7 +9,7 @@ int queue_init(queue_t *queue) {
 
   queue->first = NULL;
   queue->last = NULL;
-  queue->exit_flag = 0;
+  queue->state = UNINITIALIZED;
 
   int res;
   if (0 != (res = pthread_mutex_init(&queue->mutex, NULL))) {
@@ -21,16 +21,18 @@ int queue_init(queue_t *queue) {
     return res;
   }
 
+  queue->state = OK;
   return 0;
 }
 
 int queue_push(queue_t *queue, void *data) {
-  if (NULL == queue || 0 != queue->exit_flag) {
+  if (NULL == queue || OK != queue->state) {
     return EINVAL;
   }
 
   int res;
   if (0 != (res = pthread_mutex_lock(&queue->mutex))) {
+    queue->state = INVALID;
     return res;
   }
 
@@ -38,6 +40,7 @@ int queue_push(queue_t *queue, void *data) {
       (struct queue_node_t *)malloc(sizeof(struct queue_node_t));
   if (NULL == msg) {
     pthread_mutex_unlock(&queue->mutex);
+    queue->state = INVALID;
     return ENOMEM;
   }
 
@@ -62,11 +65,13 @@ int queue_push(queue_t *queue, void *data) {
   if (0 != signal) {
     if ((res = pthread_cond_signal(&queue->cond))) {
       pthread_mutex_unlock(&queue->mutex);
+      queue->state = INVALID;
       return res;
     }
   }
 
   if (0 != (res = pthread_mutex_unlock(&queue->mutex))) {
+    queue->state = INVALID;
     return res;
   }
 
@@ -74,28 +79,31 @@ int queue_push(queue_t *queue, void *data) {
 }
 
 int queue_pop(queue_t *queue, void **data, time_t timeout) {
-  if (NULL == queue || NULL == data || 0 != queue->exit_flag) {
+  if (NULL == queue || NULL == data || OK != queue->state) {
     return EINVAL;
   }
 
   int res;
   if (0 != (res = pthread_mutex_lock(&queue->mutex))) {
+    queue->state = INVALID;
     return res;
   }
 
   struct timespec ts;
   if (0 != (res = clock_gettime(CLOCK_REALTIME, &ts))) {
+    queue->state = INVALID;
     return res;
   }
   ts.tv_sec += timeout;
 
-  while (NULL == queue->first && 0 == queue->exit_flag) {
+  while (NULL == queue->first && OK == queue->state) {
     if (0 == timeout) {
       if (0 != (res = pthread_cond_wait(&queue->cond, &queue->mutex))) {
         pthread_mutex_unlock(&queue->mutex);
+        queue->state = INVALID;
         return res;
       }
-      break;
+      continue; // Check conditions again in case of spurious wake-ups.
     }
 
     res = pthread_cond_timedwait(&queue->cond, &queue->mutex, &ts);
@@ -104,6 +112,7 @@ int queue_pop(queue_t *queue, void **data, time_t timeout) {
     }
     if (0 != res) {
       pthread_mutex_unlock(&queue->mutex);
+      queue->state = INVALID;
       return res;
     }
   }
@@ -118,11 +127,12 @@ int queue_pop(queue_t *queue, void **data, time_t timeout) {
     if (NULL == queue->first) {
       queue->last = NULL;
     }
-  } else { // Possible if thread was unblocked by queue_destroy().
+  } else { // Possible if thread was unblocked by queue_destroy() or timed out.
     *data = NULL;
   }
 
   if (0 != (res = pthread_mutex_unlock(&queue->mutex))) {
+    queue->state = INVALID;
     return res;
   }
 
@@ -130,20 +140,22 @@ int queue_pop(queue_t *queue, void **data, time_t timeout) {
 }
 
 int queue_destroy(queue_t *queue) {
-  if (NULL == queue || 0 != queue->exit_flag) {
+  if (NULL == queue || !(OK == queue->state || INVALID == queue->state)) {
     return EINVAL;
   }
 
-  queue->exit_flag = 1;
+  queue->state = DESTROYED;
   int res;
 
   // Unblock consumer threads if they are currently waiting. If any
   // is unblocked, the consumer thread takes the mutex and this blocks on it.
   if (0 != (res = pthread_cond_broadcast(&queue->cond))) {
+    queue->state = INVALID;
     return res;
   }
 
   if (0 != (res = pthread_mutex_lock(&queue->mutex))) {
+    queue->state = INVALID;
     return res;
   }
 
@@ -157,6 +169,7 @@ int queue_destroy(queue_t *queue) {
   }
 
   if (0 != (res = pthread_mutex_unlock(&queue->mutex))) {
+    queue->state = INVALID;
     return res;
   }
 
@@ -165,12 +178,15 @@ int queue_destroy(queue_t *queue) {
   while (EBUSY == (res = pthread_mutex_destroy(&queue->mutex)))
     ;
   if (0 != res) {
+    queue->state = INVALID;
     return res;
   }
 
   if (0 != (res = pthread_cond_destroy(&queue->cond))) {
+    queue->state = INVALID;
     return res;
   }
 
+  queue->state = DESTROYED;
   return 0;
 }
