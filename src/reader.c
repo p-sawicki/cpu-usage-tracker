@@ -17,15 +17,17 @@ void *reader_thread(void *reader_params) {
 
       if (NULL != buffer) {
         rewind(params->stream);
-        fread(buffer, sizeof(char), BUFFER_LENGTH, params->stream);
-
-        if (0 == queue_push(params->analyzer_queue, buffer)) {
-          log_to_file(params->logger_queue, TAG_READER, "Sent message\n");
+        if (0 == fread(buffer, sizeof(char), BUFFER_LENGTH, params->stream)) {
+          log_to_file(params->logger_queue, TAG_READER, "fread() failed!\n");
         } else {
-          log_to_file(params->logger_queue, TAG_READER,
-                      "queue_push() failed!\n");
-          free(buffer);
-          break;
+          if (0 == queue_push(params->analyzer_queue, buffer)) {
+            log_to_file(params->logger_queue, TAG_READER, "Sent message\n");
+          } else {
+            log_to_file(params->logger_queue, TAG_READER,
+                        "queue_push() failed!\n");
+            free(buffer);
+            break;
+          }
         }
       } else {
         log_to_file(params->logger_queue, TAG_READER, "malloc() failed!\n");
