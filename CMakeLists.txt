@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(cpu-usage-tracker)
+project(cpu-usage-tracker C)
 set(C_STANDARD 99)
 
 if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
