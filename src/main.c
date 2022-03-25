@@ -7,7 +7,7 @@
 #include "watchdog.h"
 
 #define PROC_STAT "/proc/stat"
-#define LOG_FILE "/tmp/log.txt"
+#define LOG_FILE "/tmp/cut_log.txt"
 #define CHECK_ERROR(EXP)                                                       \
   do {                                                                         \
     if (EXP && 0 == exit_flag)                                                 \
