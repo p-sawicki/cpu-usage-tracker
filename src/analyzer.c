@@ -44,18 +44,18 @@ double *parse_contents(const char *stat, int nprocs, ull *prev_total,
         // Calculation based on formula from
         // https://stackoverflow.com/a/23376195/13162312
 
-        ull idle = idle + iowait;
+        ull total_idle = idle + iowait;
         ull non_idle = user + nice + system + irq + softirq + steal;
-        ull total = idle + non_idle;
+        ull total = total_idle + non_idle;
 
         ull total_diff = total - prev_total[cpu_index];
-        ull idle_diff = idle - prev_idle[cpu_index];
+        ull idle_diff = total_idle - prev_idle[cpu_index];
         usage[cpu_index] = total_diff == 0
                                ? 0.0
                                : (double)(total_diff - idle_diff) / total_diff;
 
         prev_total[cpu_index] = total;
-        prev_idle[cpu_index] = idle;
+        prev_idle[cpu_index] = total_idle;
       } else {
         log_to_file(logger_queue, TAG_ANALYZER, "Invalid line format!\n");
       }
