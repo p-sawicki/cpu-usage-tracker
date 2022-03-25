@@ -2,7 +2,7 @@
 
 #define NOTIFICATION_DELAY 1
 
-void write_to_file(FILE *output_file, const char *msg) {
+static void write_to_file(FILE *output_file, const char *msg) {
   char time_buffer[TIME_BUFFER_LENGTH];
   if (0 != get_time(time_buffer)) {
     fprintf(output_file, "%s", "[Logger] get_time() failed!\n");
@@ -15,6 +15,7 @@ void write_to_file(FILE *output_file, const char *msg) {
 void *logger_thread(void *logger_params) {
   logger_params_t *params = (logger_params_t *)logger_params;
   time_t last_notified = 0;
+  char *msg = NULL;
 
   while (0 == exit_flag) {
     time_t time_now = time(NULL);
@@ -29,7 +30,6 @@ void *logger_thread(void *logger_params) {
       last_notified = time_now;
     }
 
-    char *msg = NULL;
     if (0 == queue_pop(params->input_queue, (void **)&msg, 0) && NULL != msg) {
       write_to_file(params->output_file, msg);
 

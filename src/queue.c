@@ -3,6 +3,7 @@
 #include "queue.h"
 
 int queue_init(queue_t *queue) {
+  int res;
   if (NULL == queue) {
     return EINVAL;
   }
@@ -11,7 +12,6 @@ int queue_init(queue_t *queue) {
   queue->last = NULL;
   queue->state = UNINITIALIZED;
 
-  int res;
   if (0 != (res = pthread_mutex_init(&queue->mutex, NULL))) {
     return res;
   }

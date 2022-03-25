@@ -26,12 +26,12 @@ enum queue_state { OK = 0, UNINITIALIZED, INVALID, DESTROYED };
  *
  */
 typedef struct queue_t {
-  struct queue_node_t *first, *last;
-
-  pthread_mutex_t mutex;
   pthread_cond_t cond;
+  pthread_mutex_t mutex;
 
+  struct queue_node_t *first, *last;
   enum queue_state state;
+  char padding[4];
 } queue_t;
 
 /**
