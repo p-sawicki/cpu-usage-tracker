@@ -106,7 +106,7 @@ void queue_multiple_consumers_on_destroy_test() {
  * 2. Consumer2 calls pop with timeout = 0 (infinite).
  * 3. Data is push to the queue after 2 seconds.
  *
- * Consumer1 is expected receive NULL due to timeout.
+ * Consumer1 is expected to receive NULL due to timeout.
  * Consumer2 should take the inserted data.
  *
  */
