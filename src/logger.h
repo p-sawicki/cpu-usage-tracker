@@ -5,7 +5,7 @@
 
 typedef struct logger_params_t {
   queue_t *input_queue, *watchdog_queue;
-  int *exit_flag;
+  volatile sig_atomic_t *exit_flag;
   FILE *output_file;
 } logger_params_t;
 

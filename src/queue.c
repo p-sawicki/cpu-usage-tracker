@@ -138,7 +138,7 @@ int queue_destroy(queue_t *queue) {
   int res;
 
   // Unblock consumer threads if they are currently waiting. If any
-  // is unblocked, the consumer thread takes the mutex and this tries again.
+  // is unblocked, the consumer thread takes the mutex and this blocks on it.
   if (0 != (res = pthread_cond_broadcast(&queue->cond))) {
     return res;
   }

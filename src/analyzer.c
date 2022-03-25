@@ -96,6 +96,7 @@ void *analyzer_thread(void *analyzer_params) {
         if (queue_push(params->out_queue, usage)) {
           log_to_file(params->logger_queue, TAG_ANALYZER,
                       "queue_push() failed!\n");
+          free(usage);
         } else {
           log_to_file(params->logger_queue, TAG_ANALYZER, "Sent message\n");
         }
@@ -109,6 +110,7 @@ void *analyzer_thread(void *analyzer_params) {
 
   free(prev_idle);
   free(prev_total);
+  log_to_file(params->logger_queue, TAG_ANALYZER, "Terminating\n");
 
   return NULL;
 }

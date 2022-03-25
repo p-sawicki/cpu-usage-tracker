@@ -51,6 +51,7 @@ void *printer_thread(void *printer_params) {
       log_to_file(params->logger_queue, TAG_PRINTER, "queue_pop() failed!\n");
     }
   }
+  log_to_file(params->logger_queue, TAG_PRINTER, "Terminating\n");
 
   return NULL;
 }

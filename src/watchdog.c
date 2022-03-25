@@ -55,6 +55,7 @@ void *watchdog_thread(void *watchdog_params) {
       log_to_file(params->logger_queue, TAG_WATCHDOG, "queue_pop() failed!\n");
     }
   }
+  log_to_file(params->logger_queue, TAG_WATCHDOG, "Terminating\n");
 
   return NULL;
 }

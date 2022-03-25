@@ -20,6 +20,7 @@ void *reader_thread(void *reader_params) {
         if (queue_push(params->analyzer_queue, buffer)) {
           log_to_file(params->logger_queue, TAG_READER,
                       "queue_push() failed!\n");
+          free(buffer);
         } else {
           log_to_file(params->logger_queue, TAG_READER, "Sent message\n");
         }
@@ -32,6 +33,7 @@ void *reader_thread(void *reader_params) {
 
     sleep(1);
   }
+  log_to_file(params->logger_queue, TAG_READER, "Terminating\n");
 
   return NULL;
 }

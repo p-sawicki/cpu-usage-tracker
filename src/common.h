@@ -1,6 +1,7 @@
 #ifndef CPU_USAGE_TRACKER_COMMON_H
 #define CPU_USAGE_TRACKER_COMMON_H
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,9 +18,16 @@
 
 static inline void notify_watchdog(queue_t *queue, const char *tag) {
   char *msg = malloc(sizeof(char) * MESSAGE_LENGTH);
+  if (NULL == msg) {
+    fprintf(stderr, "%s", "malloc() in notify_watchdog() failed!\n");
+    return;
+  }
   strcpy(msg, tag);
 
-  queue_push(queue, msg);
+  if (0 != queue_push(queue, msg)) {
+    fprintf(stderr, "%s", "queue_push() in notify_watchdog() failed!\n");
+    free(msg);
+  }
 }
 
 static inline int get_time(char *formatted_time) {
@@ -49,6 +57,7 @@ static inline void log_to_file(queue_t *queue, const char *tag,
 
   if (0 != queue_push(queue, buffer)) {
     fprintf(stderr, "queue_push() in log() failed!\n");
+    free(buffer);
   }
 }
 
