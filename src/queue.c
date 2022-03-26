@@ -187,6 +187,5 @@ int queue_destroy(queue_t *queue) {
     return res;
   }
 
-  queue->state = DESTROYED;
   return 0;
 }
