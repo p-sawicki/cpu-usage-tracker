@@ -5,6 +5,10 @@
 
 #include "queue.h"
 
+#if defined(__clang__) && defined(NDEBUG)
+#pragma clang diagnostic ignored "-Wunused-variable"
+#endif
+
 typedef struct consumer_thread_params_t {
   queue_t *queue;
   const char *expected_value;
