@@ -26,37 +26,36 @@ int queue_init(queue_t *queue) {
 }
 
 int queue_push(queue_t *queue, void *data) {
+  int res, signal = 0;
+  struct queue_node_t *node;
   if (NULL == queue || OK != queue->state) {
     return EINVAL;
   }
 
-  int res;
   if (0 != (res = pthread_mutex_lock(&queue->mutex))) {
     queue->state = INVALID;
     return res;
   }
 
-  struct queue_node_t *msg =
-      (struct queue_node_t *)malloc(sizeof(struct queue_node_t));
-  if (NULL == msg) {
+  node = (struct queue_node_t *)malloc(sizeof(struct queue_node_t));
+  if (NULL == node) {
     pthread_mutex_unlock(&queue->mutex);
     queue->state = INVALID;
     return ENOMEM;
   }
 
-  msg->data = data;
-  msg->next = NULL;
+  node->data = data;
+  node->next = NULL;
 
-  int signal = 0;
   if (NULL == queue->first) {
-    queue->first = msg;
+    queue->first = node;
     signal = 1;
   }
 
   if (NULL != queue->last) {
-    queue->last->next = msg;
+    queue->last->next = node;
   }
-  queue->last = msg;
+  queue->last = node;
 
   /**
    * Queue was empty before this call so there might be a
@@ -79,17 +78,18 @@ int queue_push(queue_t *queue, void *data) {
 }
 
 int queue_pop(queue_t *queue, void **data, time_t timeout) {
+  int res;
+  struct queue_node_t *first;
+  struct timespec ts;
   if (NULL == queue || NULL == data || OK != queue->state) {
     return EINVAL;
   }
 
-  int res;
   if (0 != (res = pthread_mutex_lock(&queue->mutex))) {
     queue->state = INVALID;
     return res;
   }
 
-  struct timespec ts;
   if (0 != (res = clock_gettime(CLOCK_REALTIME, &ts))) {
     queue->state = INVALID;
     return res;
@@ -120,7 +120,7 @@ int queue_pop(queue_t *queue, void **data, time_t timeout) {
   if (NULL != queue->first) {
     *data = queue->first->data;
 
-    struct queue_node_t *first = queue->first;
+    first = queue->first;
     queue->first = queue->first->next;
     free(first);
 
@@ -140,12 +140,12 @@ int queue_pop(queue_t *queue, void **data, time_t timeout) {
 }
 
 int queue_destroy(queue_t *queue) {
+  int res;
   if (NULL == queue || !(OK == queue->state || INVALID == queue->state)) {
     return EINVAL;
   }
 
   queue->state = DESTROYED;
-  int res;
 
   // Unblock consumer threads if they are currently waiting. If any
   // is unblocked, the consumer thread takes the mutex and this blocks on it.

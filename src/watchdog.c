@@ -6,7 +6,7 @@
   log_to_file(params->logger_queue, TAG_WATCHDOG,                              \
               "Received notification from " tag "\n")
 
-int has_hanged(const char *tag, time_t time_now, time_t time_last) {
+static int has_hanged(const char *tag, time_t time_now, time_t time_last) {
   if (time_now - time_last >= TIME_DIFF_TOLERANCE) {
     fprintf(stderr, "%s thread has hanged! Quitting...\n", tag);
     return 1;
@@ -17,12 +17,12 @@ int has_hanged(const char *tag, time_t time_now, time_t time_last) {
 
 void *watchdog_thread(void *watchdog_params) {
   watchdog_params_t *params = (watchdog_params_t *)watchdog_params;
+  char *msg = NULL;
 
   time_t time_now = time(NULL), time_reader, time_analyzer, time_printer,
          time_logger;
   time_reader = time_analyzer = time_printer = time_logger = time_now;
 
-  char *msg = NULL;
   while (0 == exit_flag) {
     if (0 == queue_pop(params->input_queue, (void **)&msg, TIMEOUT_SECONDS)) {
       time_now = time(NULL);
