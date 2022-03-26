@@ -2,7 +2,7 @@
 
 #define CORES_PER_LINE 5
 
-int print_time(FILE *output) {
+static int print_time(FILE *output) {
   char buffer[TIME_BUFFER_LENGTH];
 
   if (0 == get_time(buffer)) {
@@ -14,12 +14,14 @@ int print_time(FILE *output) {
 
 void *printer_thread(void *printer_params) {
   printer_params_t *params = (printer_params_t *)printer_params;
+  size_t core_idx, lines_to_print;
+  double *usage;
 
   while (0 == exit_flag) {
     if (0 != notify_watchdog(params->watchdog_queue, TAG_PRINTER)) {
       break;
     }
-    double *usage = NULL;
+    usage = NULL;
 
     if (0 == queue_pop(params->analyzer_queue, (void **)&usage, 0) &&
         NULL != usage) {
@@ -27,16 +29,16 @@ void *printer_thread(void *printer_params) {
       fprintf(params->output_file, "\n");
 
       if (0 == print_time(params->output_file)) {
-        int lines_to_print = params->nprocs / CORES_PER_LINE;
+        lines_to_print = params->nprocs / CORES_PER_LINE;
         if (0 != params->nprocs % CORES_PER_LINE) {
           ++lines_to_print;
         }
 
-        int core_idx = 0;
-        for (int line = 0; line < lines_to_print; ++line) {
-          for (int i = 0; i < CORES_PER_LINE && core_idx < params->nprocs;
+        core_idx = 0;
+        for (size_t line = 0; line < lines_to_print; ++line) {
+          for (size_t i = 0; i < CORES_PER_LINE && core_idx < params->nprocs;
                ++i) {
-            fprintf(params->output_file, "#%02d: %.2lf%%\t", core_idx,
+            fprintf(params->output_file, "#%02ld: %.2lf%%\t", core_idx,
                     usage[core_idx] * 100.0);
             ++core_idx;
           }

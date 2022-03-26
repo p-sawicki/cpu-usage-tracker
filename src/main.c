@@ -14,19 +14,24 @@
       error(#EXP);                                                             \
   } while (0)
 
+// sa_handler and stdout generate warnings otherwise.
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
+#endif
+
 volatile sig_atomic_t exit_flag = 0;
 
-void term(int signum) {
+static void term(int signum) {
   (void)signum;
   exit_flag = 1;
 }
 
-void error(const char *msg) {
+static void error(const char *msg) {
   fprintf(stderr, "Fatal error: %s. Terminating...\n", msg);
   exit_flag = 1;
 }
 
-void add_signal_handler() {
+static void add_signal_handler() {
   struct sigaction action;
   memset(&action, 0, sizeof(struct sigaction));
   action.sa_handler = term;
@@ -36,61 +41,42 @@ void add_signal_handler() {
 }
 
 int main() {
+  queue_t reader_analyzer_queue, analyzer_printer_queue, watchdog_queue,
+      logger_queue;
+  pthread_t reader, analyzer, printer, watchdog, logger;
+  FILE *proc_stat = fopen(PROC_STAT, "r"), *output_file = fopen(LOG_FILE, "w");
+  size_t nprocs = (size_t)get_nprocs();
+
   add_signal_handler();
 
-  queue_t reader_analyzer_queue;
+  CHECK_ERROR(NULL == proc_stat);
+  CHECK_ERROR(NULL == output_file);
+
   CHECK_ERROR(0 != queue_init(&reader_analyzer_queue));
-
-  queue_t analyzer_printer_queue;
   CHECK_ERROR(0 != queue_init(&analyzer_printer_queue));
-
-  queue_t watchdog_queue;
   CHECK_ERROR(0 != queue_init(&watchdog_queue));
-
-  queue_t logger_queue;
   CHECK_ERROR(0 != queue_init(&logger_queue));
 
-  FILE *proc_stat = fopen(PROC_STAT, "r");
-  CHECK_ERROR(NULL == proc_stat);
-
-  reader_params_t reader_params = (reader_params_t){
-      &reader_analyzer_queue, &watchdog_queue, &logger_queue, proc_stat};
-
-  pthread_t reader;
+  CHECK_ERROR(0 != pthread_create(&reader, NULL, reader_thread,
+                                  &(reader_params_t){
+                                      &reader_analyzer_queue, &watchdog_queue,
+                                      &logger_queue, proc_stat}));
+  CHECK_ERROR(0 != pthread_create(&analyzer, NULL, analyzer_thread,
+                                  &(analyzer_params_t){&reader_analyzer_queue,
+                                                       &analyzer_printer_queue,
+                                                       &watchdog_queue,
+                                                       &logger_queue, nprocs}));
+  CHECK_ERROR(0 != pthread_create(&printer, NULL, printer_thread,
+                                  &(printer_params_t){
+                                      &analyzer_printer_queue, &watchdog_queue,
+                                      &logger_queue, stdout, nprocs}));
+  CHECK_ERROR(0 != pthread_create(
+                       &watchdog, NULL, watchdog_thread,
+                       &(watchdog_params_t){&watchdog_queue, &logger_queue}));
   CHECK_ERROR(0 !=
-              pthread_create(&reader, NULL, reader_thread, &reader_params));
-
-  int nprocs = get_nprocs();
-  analyzer_params_t analyzer_params =
-      (analyzer_params_t){&reader_analyzer_queue, &analyzer_printer_queue,
-                          &watchdog_queue, &logger_queue, nprocs};
-
-  pthread_t analyzer;
-  CHECK_ERROR(
-      0 != pthread_create(&analyzer, NULL, analyzer_thread, &analyzer_params));
-
-  printer_params_t printer_params = (printer_params_t){
-      &analyzer_printer_queue, &watchdog_queue, &logger_queue, stdout, nprocs};
-
-  pthread_t printer;
-  CHECK_ERROR(0 !=
-              pthread_create(&printer, NULL, printer_thread, &printer_params));
-
-  watchdog_params_t watchdog_params =
-      (watchdog_params_t){&watchdog_queue, &logger_queue};
-
-  pthread_t watchdog;
-  CHECK_ERROR(
-      0 != pthread_create(&watchdog, NULL, watchdog_thread, &watchdog_params));
-
-  FILE *output_file = fopen(LOG_FILE, "w");
-  CHECK_ERROR(NULL == output_file);
-  logger_params_t logger_params =
-      (logger_params_t){&logger_queue, &watchdog_queue, output_file};
-
-  pthread_t logger;
-  CHECK_ERROR(0 !=
-              pthread_create(&logger, NULL, logger_thread, &logger_params));
+              pthread_create(&logger, NULL, logger_thread,
+                             &(logger_params_t){&logger_queue, &watchdog_queue,
+                                                output_file}));
 
   // Watchdog will be the first to finish because it never blocks indefinitely.
   // After this, exit_flag == 1.
@@ -109,9 +95,8 @@ int main() {
   CHECK_ERROR(0 != pthread_join(printer, NULL));
   CHECK_ERROR(0 != pthread_join(logger, NULL));
 
-  CHECK_ERROR(0 != fclose(reader_params.stream));
-  CHECK_ERROR(0 != fflush(logger_params.output_file));
-  CHECK_ERROR(0 != fclose(logger_params.output_file));
+  CHECK_ERROR(0 != fclose(proc_stat));
+  CHECK_ERROR(0 != fclose(output_file));
 
   printf("Goodbye.\n");
 }

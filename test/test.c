@@ -11,7 +11,7 @@ typedef struct consumer_thread_params_t {
   time_t timeout;
 } consumer_thread_params_t;
 
-void *consumer_thread(void *thread_params) {
+static void *consumer_thread(void *thread_params) {
   consumer_thread_params_t *params = (consumer_thread_params_t *)thread_params;
   void *data = NULL;
 
@@ -31,15 +31,14 @@ void *consumer_thread(void *thread_params) {
  * Sleep()s were added to ensure correct order for testing.
  *
  */
-void queue_test() {
+static void queue_test() {
   queue_t queue;
+  char *elem1 = "test1";
+  char *elem2 = "test2";
+  pthread_t consumer1, consumer2;
+  consumer_thread_params_t params1, params2;
   assert(0 == queue_init(&queue));
 
-  const char *elem1 = "test1";
-  const char *elem2 = "test2";
-
-  pthread_t consumer1, consumer2;
-  consumer_thread_params_t params1;
   params1.expected_value = elem1;
   params1.queue = &queue;
   params1.timeout = 0;
@@ -50,7 +49,6 @@ void queue_test() {
   assert(0 == queue_push(&queue, (void *)elem2));
   sleep(1);
 
-  consumer_thread_params_t params2;
   params2.expected_value = elem2;
   params2.queue = &queue;
   params2.timeout = 0;
@@ -66,11 +64,10 @@ void queue_test() {
  * @brief Tests that data left in queue are deallocated on queue_destroy().
  *
  */
-void queue_destroy_test() {
+static void queue_destroy_test() {
   queue_t queue;
-  assert(0 == queue_init(&queue));
-
   void *data = malloc(1024); // Should be freed in queue_destoy().
+  assert(0 == queue_init(&queue));
 
   assert(0 == queue_push(&queue, data));
   assert(0 == queue_destroy(&queue));
@@ -82,12 +79,12 @@ void queue_destroy_test() {
  * queue_destroy().
  *
  */
-void queue_multiple_consumers_on_destroy_test() {
+static void queue_multiple_consumers_on_destroy_test() {
   queue_t queue;
+  consumer_thread_params_t params;
+  pthread_t consumer1, consumer2;
   assert(0 == queue_init(&queue));
 
-  pthread_t consumer1, consumer2;
-  consumer_thread_params_t params;
   params.expected_value = NULL;
   params.queue = &queue;
 
@@ -110,17 +107,17 @@ void queue_multiple_consumers_on_destroy_test() {
  * Consumer2 should take the inserted data.
  *
  */
-void queue_timeout_test() {
+static void queue_timeout_test() {
   queue_t queue;
-  assert(0 == queue_init(&queue));
-
   pthread_t consumer1, consumer2;
   consumer_thread_params_t params1;
+  consumer_thread_params_t params2;
+  assert(0 == queue_init(&queue));
+
   params1.expected_value = NULL;
   params1.queue = &queue;
   params1.timeout = 1;
 
-  consumer_thread_params_t params2;
   params2.expected_value = "test";
   params2.queue = &queue;
   params2.timeout = 0;
