@@ -28,10 +28,9 @@ static double *parse_contents(const char *stat, size_t nprocs, ull *prev_total,
     return NULL;
   }
 
-  line = strtok(begin, "\n");
-
   // Check that line begins with "cpu".
-  while (strstr(line, STAT_LINE_START) == line) {
+  for (line = strtok(begin, "\n"); strstr(line, STAT_LINE_START) == line;
+       line = strtok(NULL, "\n")) {
     // First line contains total usage so it should be skipped.
     // It starts with "cpu " while lines with data for individual cores
     // start with "cpuN" so isdigit() returns true only for those.
@@ -62,8 +61,6 @@ static double *parse_contents(const char *stat, size_t nprocs, ull *prev_total,
         log_to_file(logger_queue, TAG_ANALYZER, "Invalid line format!\n");
       }
     }
-
-    line = strtok(NULL, "\n");
   }
 
   return usage;
